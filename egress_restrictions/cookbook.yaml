@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cookbook
+  labels:
+    istio-injection: enabled
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: cookbook
+spec:
+  egress:
+  - hosts:
+    - ./*
+    - istio-system/*
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY
+---

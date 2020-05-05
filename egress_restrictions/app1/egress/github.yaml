@@ -1,0 +1,111 @@
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: github
+  namespace: cookbook-app1-egress
+spec:
+  hosts:
+  - github.com
+  ports:
+  - name: http
+    protocol: HTTP
+    number: 80
+  - name: tls
+    protocol: TLS
+    number: 443
+  location: MESH_EXTERNAL
+  resolution: DNS
+---
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: github
+  namespace: cookbook-app1-egress
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - hosts:
+    - github.com
+    port:
+      name: http
+      protocol: HTTP
+      number: 80
+  - hosts:
+    - github.com
+    port:
+      name: tls
+      protocol: TLS
+      number: 443
+    tls:
+      mode: PASSTHROUGH
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: github
+  namespace: cookbook-app1-egress
+spec:
+  hosts:
+  - github.com
+  gateways:
+  - mesh
+  - github
+  http:
+  - match:
+    - gateways:
+      - mesh
+      port: 80
+    route:
+    - destination:
+        host: istio-egressgateway.istio-system.svc.cluster.local
+        port:
+          number: 80
+  - match:
+    - gateways:
+      - github
+      port: 80
+    route:
+    - destination:
+        host: github.com
+        subset: tls-origination
+        port:
+          number: 443
+  tls:
+  - match:
+    - gateways:
+      - mesh
+      sni_hosts:
+      - github.com
+    route:
+    - destination:
+        host: istio-egressgateway.istio-system.svc.cluster.local
+        port:
+          number: 443
+  - match:
+    - gateways:
+      - github
+      sni_hosts:
+      - github.com
+    route:
+    - destination:
+        host: github.com
+        port:
+          number: 443
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: github
+  namespace: cookbook-app1-egress
+spec:
+  host: github.com
+  subsets:
+  - name: tls-origination
+    trafficPolicy:
+      portLevelSettings:
+      - port:
+          number: 443
+        tls:
+          mode: SIMPLE
+---
